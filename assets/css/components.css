@@ -785,3 +785,101 @@
   align-items: center;
   justify-content: center;
 }
+
+/* ==========================================================================
+   5. RESPONSIVE CHO CÁC THÀNH PHẦN (COMPONENTS RESPONSIVE)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .product-card-body {
+    padding: 14px;
+  }
+  .product-card-title {
+    font-size: 1.05rem;
+  }
+  .product-current-price {
+    font-size: 1.05rem;
+  }
+  .btn-card-action {
+    padding: 7px 11px;
+    font-size: 0.8rem;
+  }
+  .modal-overlay {
+    padding: 12px;
+  }
+  .modal-header-hero {
+    height: 180px;
+  }
+  .modal-body-scrollable {
+    padding: 18px 16px;
+    gap: 16px;
+  }
+  .custom-modal-card,
+  .checkout-modal-card {
+    max-height: 94vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-card-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .product-card-desc {
+    font-size: 0.78rem;
+    margin-bottom: 12px;
+  }
+  .modal-footer-action {
+    flex-direction: column-reverse;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .modal-footer-action .btn-primary,
+  .modal-footer-action .btn-secondary {
+    width: 100%;
+    padding: 11px 16px;
+    font-size: 0.9rem;
+  }
+  .modal-footer-action .quantity-stepper {
+    width: 100%;
+    justify-content: center;
+  }
+  .payment-methods-grid {
+    grid-template-columns: 1fr;
+  }
+  .toppings-selection-list {
+    grid-template-columns: 1fr;
+  }
+  .vietqr-presentation-box {
+    padding: 14px 10px;
+  }
+  .vietqr-image {
+    width: 180px;
+    height: 180px;
+    max-width: 100%;
+  }
+  .vietqr-details-table td {
+    font-size: 0.78rem;
+    padding: 6px 2px;
+    word-break: break-word;
+  }
+  .cart-drawer-header,
+  .cart-drawer-footer,
+  .cart-voucher-box,
+  .checkout-modal-body {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .cart-items-scroll {
+    padding: 14px;
+  }
+  .cart-item-thumb {
+    width: 60px;
+    height: 60px;
+  }
+  .voucher-input-row {
+    flex-direction: column;
+  }
+  .voucher-input-row .btn-primary {
+    width: 100%;
+  }
+}

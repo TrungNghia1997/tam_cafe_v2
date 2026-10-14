@@ -16,18 +16,93 @@ document.addEventListener("DOMContentLoaded", () => {
   initAmbientSound();
 });
 
+let isProgrammaticScroll = false;
+let programmaticScrollTimeout = null;
+
+// Hàm cập nhật trạng thái Active trên cả Sidebar Desktop và Thanh trượt Mobile
+function setActiveCategoryUI(catId, scrollMobileBar = true) {
+  const sidebarLinks = document.querySelectorAll(".category-nav-link");
+  sidebarLinks.forEach(link => {
+    link.classList.toggle("active", link.getAttribute("data-category-id") === catId);
+  });
+
+  const mobilePills = document.querySelectorAll(".mobile-cat-pill");
+  mobilePills.forEach(pill => {
+    const isActive = pill.getAttribute("data-category-id") === catId;
+    pill.classList.toggle("active", isActive);
+
+    if (isActive && scrollMobileBar) {
+      // Chỉ cuộn container ngang mobile khi thanh này đang hiển thị
+      const bar = document.getElementById("mobile-category-bar");
+      if (bar && bar.offsetParent !== null) {
+        const pillLeft = pill.offsetLeft;
+        const pillWidth = pill.offsetWidth;
+        const barWidth = bar.clientWidth;
+        bar.scrollTo({
+          left: pillLeft - (barWidth / 2) + (pillWidth / 2),
+          behavior: "smooth"
+        });
+      }
+    }
+  });
+}
+
+// Cuộn mượt đến danh mục món không gây giật màn hình
+function scrollToCategorySection(targetId) {
+  const targetEl = document.getElementById(targetId);
+  if (!targetEl) return;
+
+  isProgrammaticScroll = true;
+  setActiveCategoryUI(targetId, true);
+
+  targetEl.scrollIntoView({ behavior: "smooth" });
+
+  clearTimeout(programmaticScrollTimeout);
+  programmaticScrollTimeout = setTimeout(() => {
+    isProgrammaticScroll = false;
+  }, 750);
+}
+
 /* ==========================================================================
    1. THANH ĐIỀU HƯỚNG & HEADER
    ========================================================================== */
 function initHeader() {
   const header = document.querySelector(".site-header");
+  const mainNavLinks = document.querySelectorAll(".main-nav .nav-link");
+  const sectionIds = ["hero", "menu-catalog", "heritage", "spaces", "contact"];
+  const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+
+  let headerTicking = false;
   window.addEventListener("scroll", () => {
-    if (window.scrollY > 40) {
-      header.classList.add("scrolled");
-    } else {
-      header.classList.remove("scrolled");
-    }
-  });
+    if (headerTicking) return;
+    headerTicking = true;
+    requestAnimationFrame(() => {
+      headerTicking = false;
+      const scrollY = window.scrollY;
+
+      // Scrolled styling
+      if (scrollY > 30) {
+        header.classList.add("scrolled");
+      } else {
+        header.classList.remove("scrolled");
+      }
+
+      // Cập nhật trạng thái active của menu chính khi cuộn
+      if (!isProgrammaticScroll && sections.length > 0) {
+        const triggerY = scrollY + 140;
+        let activeSecId = "hero";
+        sections.forEach(sec => {
+          if (triggerY >= sec.offsetTop) {
+            activeSecId = sec.getAttribute("id");
+          }
+        });
+        mainNavLinks.forEach(link => {
+          const href = link.getAttribute("href");
+          link.classList.toggle("active", href === `#${activeSecId}`);
+        });
+      }
+    });
+  }, { passive: true });
 
   // Mobile menu toggle
   const mobileToggle = document.getElementById("mobile-menu-toggle");
@@ -70,12 +145,7 @@ function renderSidebarCategories() {
     link.addEventListener("click", (e) => {
       e.preventDefault();
       const targetId = link.getAttribute("data-category-id");
-      const targetEl = document.getElementById(targetId);
-      if (targetEl) {
-        targetEl.scrollIntoView({ behavior: "smooth" });
-        listEl.querySelectorAll(".category-nav-link").forEach(l => l.classList.remove("active"));
-        link.classList.add("active");
-      }
+      scrollToCategorySection(targetId);
     });
   });
 }
@@ -96,12 +166,7 @@ function renderMobileCategories() {
     pill.addEventListener("click", (e) => {
       e.preventDefault();
       const targetId = pill.getAttribute("data-category-id");
-      const targetEl = document.getElementById(targetId);
-      if (targetEl) {
-        targetEl.scrollIntoView({ behavior: "smooth" });
-        listEl.querySelectorAll(".mobile-cat-pill").forEach(p => p.classList.remove("active"));
-        pill.classList.add("active");
-      }
+      scrollToCategorySection(targetId);
     });
   });
 }
@@ -216,39 +281,64 @@ function renderProductCard(prod) {
    ========================================================================== */
 function initScrollSpy() {
   const sections = document.querySelectorAll(".menu-category-section");
-  const navLinks = document.querySelectorAll(".category-nav-link");
-  const mobilePills = document.querySelectorAll(".mobile-cat-pill");
-
   if (!sections.length) return;
 
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const id = entry.target.getAttribute("id");
+  // Hủy handler cũ nếu có
+  if (window._tamScrollSpyHandler) {
+    window.removeEventListener("scroll", window._tamScrollSpyHandler);
+  }
 
-        navLinks.forEach(link => {
-          if (link.getAttribute("data-category-id") === id) {
-            navLinks.forEach(l => l.classList.remove("active"));
-            link.classList.add("active");
-          }
-        });
+  let ticking = false;
 
-        mobilePills.forEach(pill => {
-          if (pill.getAttribute("data-category-id") === id) {
-            mobilePills.forEach(p => p.classList.remove("active"));
-            pill.classList.add("active");
-            // Auto scroll horizontal pill into view
-            pill.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  const onScroll = () => {
+    if (isProgrammaticScroll) return;
+    if (ticking) return;
+
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      if (isProgrammaticScroll) return;
+
+      const isMobile = window.innerWidth <= 1024;
+      const headerHeight = isMobile ? (window.innerWidth <= 768 ? 68 : 82) : 82;
+      const stickyOffset = headerHeight + (isMobile ? 54 : 24);
+      const scrollY = window.scrollY;
+      const triggerY = scrollY + stickyOffset + 70;
+
+      let currentId = null;
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        const top = section.offsetTop;
+        const height = section.offsetHeight;
+        if (triggerY >= top && triggerY < top + height) {
+          currentId = section.getAttribute("id");
+          break;
+        }
+      }
+
+      // Nếu đang trong vùng catalog
+      if (!currentId && sections.length > 0) {
+        const menuCatalog = document.getElementById("menu-catalog");
+        if (menuCatalog) {
+          const menuTop = menuCatalog.offsetTop;
+          const menuBottom = menuTop + menuCatalog.offsetHeight;
+          if (scrollY + stickyOffset >= menuTop && scrollY < menuBottom) {
+            currentId = sections[0].getAttribute("id");
           }
-        });
+        }
+      }
+
+      if (currentId) {
+        setActiveCategoryUI(currentId, true);
       }
     });
-  }, {
-    rootMargin: "-20% 0px -70% 0px",
-    threshold: 0
-  });
+  };
 
-  sections.forEach(s => observer.observe(s));
+  window._tamScrollSpyHandler = onScroll;
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  // Kiểm tra lần đầu
+  onScroll();
 }
 
 /* ==========================================================================
@@ -760,18 +850,33 @@ function showOrderSuccessModal(order) {
    9. ÂM THANH MỘC MẠC (AMBIENT SOUND)
    ========================================================================== */
 function initAmbientSound() {
-  const toggleBtn = document.getElementById("ambient-toggle-btn");
-  if (!toggleBtn) return;
+  const toggleBtns = [
+    document.getElementById("ambient-toggle-btn"),
+    document.getElementById("mobile-ambient-btn")
+  ].filter(Boolean);
 
-  toggleBtn.addEventListener("click", () => {
-    const isPlaying = window.ambientSound.toggle();
-    if (isPlaying) {
-      toggleBtn.classList.add("active");
-      showToast("Đang phát âm thanh đàn ngũ cung & giọt phin mộc mạc...");
-    } else {
-      toggleBtn.classList.remove("active");
-      showToast("Đã tắt âm thanh không gian.");
-    }
+  if (!toggleBtns.length) return;
+
+  const updateButtonsState = (isPlaying) => {
+    toggleBtns.forEach(btn => {
+      if (isPlaying) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+  };
+
+  toggleBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const isPlaying = window.ambientSound.toggle();
+      updateButtonsState(isPlaying);
+      if (isPlaying) {
+        showToast("Đang phát âm thanh đàn ngũ cung & giọt phin mộc mạc...");
+      } else {
+        showToast("Đã tắt âm thanh không gian.");
+      }
+    });
   });
 }
 
